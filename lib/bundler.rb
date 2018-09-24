@@ -239,11 +239,9 @@ module Bundler
     end
 
     def app_config_path
-      if app_config = ENV["BUNDLE_APP_CONFIG"]
-        root.join(app_config)
-      else
-        root.join(".bundle")
-      end
+      app_config = ENV["BUNDLE_APP_CONFIG"] || ".bundle"
+
+      root.join(app_config)
     end
 
     def app_cache(custom_path = nil)
