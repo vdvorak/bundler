@@ -232,6 +232,14 @@ module Bundler
       @root ||= SharedHelpers.root
     end
 
+    def config_root
+      @config_root ||= SharedHelpers.config_root
+    end
+
+    def current_config_path
+      config_root.join(app_config)
+    end
+
     def app_config_path
       root.join(app_config)
     rescue GemfileNotFound
@@ -261,7 +269,7 @@ EOF
     end
 
     def settings
-      @settings ||= Settings.new(app_config_path)
+      @settings ||= Settings.new(current_config_path)
     end
 
     # @return [Hash] Environment present before Bundler was activated
