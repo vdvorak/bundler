@@ -15,8 +15,12 @@ module Bundler
   module SharedHelpers
     def root
       gemfile = find_gemfile
-      raise GemfileNotFound, "Could not locate Gemfile" unless gemfile
-      Pathname.new(gemfile).untaint.expand_path.parent
+      return Pathname.new(gemfile).untaint.expand_path.parent if gemfile
+
+      bundle_dir = default_bundle_dir
+      raise GemfileNotFound, "Could not locate Gemfile or .bundle/ directory" unless bundle_dir
+
+      bundle_dir.parent
     end
 
     def default_gemfile
