@@ -13,6 +13,7 @@ branches:
     - trying
     - /.+-dev$/
     - /.+-stable$/
+    - revert_bin_activation_rubygems_monkeypatches
 
 cache:
   directories:
