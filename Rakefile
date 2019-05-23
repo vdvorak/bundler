@@ -71,6 +71,13 @@ namespace :spec do
       # Install the gems with a consistent version of RubyGems
       sh "gem update --system 3.0.3"
 
+      if ENV["CI"]
+        sh "rm $(which bundle)"
+
+        sh "gem install bundler:1.17.2 --default" if RUBY_VERSION == "2.6.3"
+        sh "gem install bundler:1.17.3 --default" if RUBY_VERSION == "2.5.5" || RUBY_VERSION == "2.4.6"
+      end
+
       # Install the other gem deps, etc
       Rake::Task["spec:deps"].invoke
     end
