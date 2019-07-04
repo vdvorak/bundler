@@ -61,7 +61,7 @@ module Bundler
 
     settings_option(:default_cli_command) { bundler_3_mode? ? :cli_help : :install }
 
-    env_flag(:config_relative_to_cwd) { bundler_2_mode? }
+    env_flag(:config_relative_to_cwd) { bundler_3_mode? }
 
     def initialize(bundler_version)
       @bundler_version = Gem::Version.create(bundler_version)
