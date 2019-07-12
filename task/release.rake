@@ -4,9 +4,33 @@ require "bundler/gem_tasks"
 task :build => ["build_metadata", "man:build", "generate_files"] do
   Rake::Task["build_metadata:clean"].tap(&:reenable).real_invoke
 end
-task :release => ["man:require", "man:build", "release:verify_github", "build_metadata"]
+task :release => ["man:build", "release:verify_files", "release:verify_github", "build_metadata"]
 
 namespace :release do
+  task :verify_files do
+    git_list = IO.popen("git ls-files -z", &:read).split("\x0").select {|f| f.match(%r{^(lib|exe)/}) }
+    git_list += %w[CHANGELOG.md LICENSE.md README.md bundler.gemspec]
+    git_list += Dir.glob("man/**/*")
+
+    gem_list = Gem::Specification.load("bundler.gemspec").files
+
+    extra_files = gem_list.to_set - git_list.to_set
+
+    error_msg = <<~MSG
+
+      You intend to ship some files with the gem that are not generated man pages
+      nor source control files. Please review the extra list of files and try
+      again:
+
+      #{extra_files.to_a.join("\n  ")}
+
+    MSG
+
+    raise error_msg if extra_files.any?
+
+    puts "The file list is correct for a release."
+  end
+
   def gh_api_post(opts)
     gem "netrc", "~> 0.11.0"
     require "netrc"
@@ -160,7 +184,7 @@ namespace :release do
     File.open(version_file, "w") {|f| f.write(version_contents) }
 
     commits = `git log --oneline origin/master --`.split("\n").map {|l| l.split(/\s/, 2) }.reverse
-    commits.select! {|_sha, message| message =~ /(Auto merge of|Merge pull request) ##{Regexp.union(*prs)}/ }
+    commits.select! {|_sha, message| message =~ /(Auto merge of|Merge pull request|Merge) ##{Regexp.union(*prs)}/ }
 
     abort "Could not find commits for all PRs" unless commits.size == prs.size
 
@@ -187,7 +211,7 @@ namespace :release do
   task :open_unreleased_prs do
     def prs(on = "master")
       commits = `git log --oneline origin/#{on} --`.split("\n")
-      commits.reverse_each.map {|c| c =~ /(Auto merge of|Merge pull request) #(\d+)/ && $2 }.compact
+      commits.reverse_each.map {|c| c =~ /(Auto merge of|Merge pull request|Merge) #(\d+)/ && $2 }.compact
     end
 
     last_stable = `git ls-remote origin`.split("\n").map {|r| r =~ %r{refs/tags/v([\d.]+)$} && $1 }.compact.map {|v| Gem::Version.create(v) }.max

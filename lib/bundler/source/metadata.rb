@@ -13,17 +13,19 @@ module Bundler
           idx << Gem::Specification.new do |s|
             s.name     = "bundler"
             s.version  = VERSION
+            s.license  = "MIT"
             s.platform = Gem::Platform::RUBY
             s.source   = self
             s.authors  = ["bundler team"]
             s.bindir   = "exe"
+            s.homepage = "https://bundler.io"
+            s.summary  = "The best way to manage your application's dependencies"
             s.executables = %w[bundle]
             # can't point to the actual gemspec or else the require paths will be wrong
             s.loaded_from = File.expand_path("..", __FILE__)
           end
-          if loaded_spec = nil && Bundler.rubygems.loaded_specs("bundler")
-            idx << loaded_spec # this has to come after the fake gemspec, to override it
-          elsif local_spec = Bundler.rubygems.find_name("bundler").find {|s| s.version.to_s == VERSION }
+
+          if local_spec = Bundler.rubygems.find_name("bundler").find {|s| s.version.to_s == VERSION }
             idx << local_spec
           end
 

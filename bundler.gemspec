@@ -1,8 +1,11 @@
-# coding: utf-8
 # frozen_string_literal: true
 
-require File.expand_path("../lib/bundler/version", __FILE__)
-require "shellwords"
+begin
+  require_relative "lib/bundler/version"
+rescue LoadError
+  # for Ruby core repository
+  require_relative "version"
+end
 
 Gem::Specification.new do |s|
   s.name        = "bundler"
@@ -15,35 +18,30 @@ Gem::Specification.new do |s|
     "Yehuda Katz"
   ]
   s.email       = ["team@bundler.io"]
-  s.homepage    = "http://bundler.io"
+  s.homepage    = "https://bundler.io"
   s.summary     = "The best way to manage your application's dependencies"
   s.description = "Bundler manages an application's dependencies through its entire life, across many machines, systematically and repeatably"
 
   if s.respond_to?(:metadata=)
     s.metadata = {
-      "bug_tracker_uri" => "http://github.com/bundler/bundler/issues",
+      "bug_tracker_uri" => "https://github.com/bundler/bundler/issues",
       "changelog_uri" => "https://github.com/bundler/bundler/blob/master/CHANGELOG.md",
       "homepage_uri" => "https://bundler.io/",
-      "source_code_uri" => "http://github.com/bundler/bundler/",
+      "source_code_uri" => "https://github.com/bundler/bundler/",
     }
   end
 
-  if s.version >= Gem::Version.new("2.a".dup)
-    s.required_ruby_version     = ">= 2.3.0"
-    s.required_rubygems_version = ">= 2.5.0"
-  else
-    s.required_ruby_version     = ">= 1.8.7"
-    s.required_rubygems_version = ">= 1.3.6"
-  end
+  s.required_ruby_version     = ">= 2.3.0"
+  s.required_rubygems_version = ">= 2.5.0"
 
   s.add_development_dependency "automatiek", "~> 0.1.0"
-  s.add_development_dependency "mustache",   "0.99.6"
-  s.add_development_dependency "rake",       "~> 10.0"
-  s.add_development_dependency "rdiscount",  "~> 2.2"
+  s.add_development_dependency "rake",       "~> 12.0"
   s.add_development_dependency "ronn",       "~> 0.7.3"
   s.add_development_dependency "rspec",      "~> 3.6"
+  s.add_development_dependency "rubocop",    "= 0.71.0"
+  s.add_development_dependency "rubocop-performance", "= 1.4.0"
 
-  s.files = `git -C #{Shellwords.escape File.dirname(__FILE__)} ls-files -z`.split("\x0").select {|f| f.match(%r{^(lib|exe)/}) }
+  s.files = Dir.glob("{lib,exe}/**/*", File::FNM_DOTMATCH).reject {|f| File.directory?(f) }
 
   # we don't check in man pages, but we need to ship them because
   # we use them to generate the long-form help for each command.

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+
 module Spec
   module Helpers
     def reset!
@@ -39,19 +41,25 @@ module Spec
     end
 
     def out
-      last_command.stdboth
+      last_command.stdout
     end
 
     def err
       last_command.stderr
     end
 
-    def exitstatus
-      last_command.exitstatus
+    MAJOR_DEPRECATION = /^\[DEPRECATED\]\s*/.freeze
+
+    def err_without_deprecations
+      err.gsub(/#{MAJOR_DEPRECATION}.+[\n]?/, "")
     end
 
-    def bundle_update_requires_all?
-      Bundler::VERSION.start_with?("1.") ? nil : true
+    def deprecations
+      err.split("\n").select {|l| l =~ MAJOR_DEPRECATION }.join("\n").split(MAJOR_DEPRECATION)
+    end
+
+    def exitstatus
+      last_command.exitstatus
     end
 
     def in_app_root(&blk)
@@ -69,7 +77,7 @@ module Spec
     def run(cmd, *args)
       opts = args.last.is_a?(Hash) ? args.pop : {}
       groups = args.map(&:inspect).join(", ")
-      setup = "require 'rubygems' ; require 'bundler' ; Bundler.setup(#{groups})\n"
+      setup = "require 'bundler' ; Bundler.setup(#{groups})\n"
       ruby(setup + cmd, opts)
     end
     bang :run
@@ -99,13 +107,10 @@ module Spec
       with_sudo = options.delete(:sudo)
       sudo = with_sudo == :preserve_env ? "sudo -E" : "sudo" if with_sudo
 
-      no_color = options.delete("no-color") { cmd.to_s !~ /\A(e|ex|exe|exec|conf|confi|config)(\s|\z)/ }
-      options["no-color"] = true if no_color
-
       bundle_bin = options.delete("bundle_bin") || bindir.join("bundle")
 
       if system_bundler = options.delete(:system_bundler)
-        bundle_bin = "-S bundle"
+        bundle_bin = system_bundle_bin_path
       end
 
       env = options.delete(:env) || {}
@@ -132,8 +137,6 @@ module Spec
       load_path << spec
       load_path_str = "-I#{load_path.join(File::PATH_SEPARATOR)}"
 
-      env = env.map {|k, v| "#{k}='#{v}'" }.join(" ")
-
       args = options.map do |k, v|
         case v
         when nil
@@ -147,13 +150,13 @@ module Spec
         end
       end.join
 
-      cmd = "#{env} #{sudo} #{Gem.ruby} #{load_path_str} #{requires_str} #{bundle_bin} #{cmd}#{args}"
-      sys_exec(cmd) {|i, o, thr| yield i, o, thr if block_given? }
+      cmd = "#{sudo} #{Gem.ruby} #{load_path_str} #{requires_str} #{bundle_bin} #{cmd}#{args}"
+      sys_exec(cmd, env) {|i, o, thr| yield i, o, thr if block_given? }
     end
     bang :bundle
 
     def forgotten_command_line_options(options)
-      remembered = Bundler::VERSION.split(".", 2).first == "1"
+      remembered = Bundler::VERSION.split(".", 2).first == "2"
       options = options.map do |k, v|
         k = Array(k)[remembered ? 0 : -1]
         v = '""' if v && v.to_s.empty?
@@ -162,9 +165,9 @@ module Spec
       return Hash[options] if remembered
       options.each do |k, v|
         if v.nil?
-          bundle! "config --delete #{k}"
+          bundle! "config unset #{k}"
         else
-          bundle! "config --local #{k} #{v}"
+          bundle! "config set --local #{k} #{v}"
         end
       end
       {}
@@ -173,11 +176,6 @@ module Spec
     def bundler(cmd, options = {})
       options["bundle_bin"] = bindir.join("bundler")
       bundle(cmd, options)
-    end
-
-    def bundle_ruby(options = {})
-      options["bundle_bin"] = bindir.join("bundle_ruby")
-      bundle("", options)
     end
 
     def ruby(ruby, options = {})
@@ -213,20 +211,27 @@ module Spec
         args = args.gsub(/(?=")/, "\\")
         args = %("#{args}")
       end
-      sys_exec("#{Gem.ruby} -rrubygems -S gem --backtrace #{command} #{args}")
+      gem = ENV["BUNDLE_GEM"] || "#{Gem.ruby} -rrubygems -S gem --backtrace"
+      sys_exec("#{gem} #{command} #{args}")
     end
     bang :gem_command
 
-    def sys_exec(cmd)
+    def rake
+      "#{Gem.ruby} -S #{ENV["GEM_PATH"]}/bin/rake"
+    end
+
+    def sys_exec(cmd, env = {})
       command_execution = CommandExecution.new(cmd.to_s, Dir.pwd)
 
-      Open3.popen3(cmd.to_s) do |stdin, stdout, stderr, wait_thr|
+      env = env.map {|k, v| [k.to_s, v.to_s] }.to_h # convert env keys and values to string
+
+      Open3.popen3(env, cmd.to_s) do |stdin, stdout, stderr, wait_thr|
         yield stdin, stdout, wait_thr if block_given?
         stdin.close
 
-        command_execution.exitstatus = wait_thr && wait_thr.value.exitstatus
         command_execution.stdout = Thread.new { stdout.read }.value.strip
         command_execution.stderr = Thread.new { stderr.read }.value.strip
+        command_execution.exitstatus = wait_thr && wait_thr.value.exitstatus
       end
 
       (@command_executions ||= []) << command_execution
@@ -259,18 +264,22 @@ module Spec
     end
 
     def gemfile(*args)
-      if args.empty?
+      contents = args.shift
+
+      if contents.nil?
         File.open("Gemfile", "r", &:read)
       else
-        create_file("Gemfile", *args)
+        create_file("Gemfile", contents, *args)
       end
     end
 
     def lockfile(*args)
-      if args.empty?
+      contents = args.shift
+
+      if contents.nil?
         File.open("Gemfile.lock", "r", &:read)
       else
-        create_file("Gemfile.lock", *args)
+        create_file("Gemfile.lock", contents, *args)
       end
     end
 
@@ -278,15 +287,6 @@ module Spec
       # Trim the leading spaces
       spaces = str[/\A\s+/, 0] || ""
       str.gsub(/^#{spaces}/, "")
-    end
-
-    def normalize_uri_file(str)
-      # URI::File of Ruby 2.6 normalize localhost variable with file protocol.
-      if defined?(URI::File)
-        str.gsub(%r{file:\/\/localhost}, "file://")
-      else
-        str
-      end
     end
 
     def install_gemfile(*args)
@@ -309,9 +309,17 @@ module Spec
       gem_repo = options.fetch(:gem_repo) { gem_repo1 }
       gems.each do |g|
         path = if g == :bundler
-          Dir.chdir(root) { gem_command! :build, gemspec.to_s }
+          if ruby_core?
+            spec = Gem::Specification.load(gemspec.to_s)
+            spec.bindir = "libexec"
+            File.open(root.join("bundler.gemspec").to_s, "w") {|f| f.write spec.to_ruby }
+            Dir.chdir(root) { gem_command! :build, root.join("bundler.gemspec").to_s }
+            FileUtils.rm(root.join("bundler.gemspec"))
+          else
+            Dir.chdir(root) { gem_command! :build, gemspec.to_s }
+          end
           bundler_path = root + "bundler-#{Bundler::VERSION}.gem"
-        elsif g.to_s =~ %r{\A/.*\.gem\z}
+        elsif g.to_s =~ %r{\A(?:[A-Z]:)?/.*\.gem\z}
           g
         else
           "#{gem_repo}/gems/#{g}.gem"
@@ -319,11 +327,8 @@ module Spec
 
         raise "OMG `#{path}` does not exist!" unless File.exist?(path)
 
-        if Gem::VERSION < "2.0.0"
-          gem_command! :install, "--no-rdoc --no-ri --ignore-dependencies '#{path}'"
-        else
-          gem_command! :install, "--no-document --ignore-dependencies '#{path}'"
-        end
+        gem_command! :install, "--no-document --ignore-dependencies '#{path}'"
+
         bundler_path && bundler_path.rmtree
       end
     end
@@ -425,7 +430,7 @@ module Spec
       ENV["GEM_PATH"] = system_gem_path.to_s
 
       gems.each do |gem|
-        gem_command :install, "--no-rdoc --no-ri #{gem}"
+        gem_command! :install, "--no-document #{gem}"
       end
       return unless block_given?
       begin
@@ -534,6 +539,22 @@ module Spec
       Dir[pattern].each(&chmod[0o755, 0o644])
     end
 
+    # Simulate replacing TODOs with real values
+    def prepare_gemspec(pathname)
+      process_file(pathname) do |line|
+        case line
+        when /spec\.metadata\["(?:allowed_push_host|homepage_uri|source_code_uri|changelog_uri)"\]/, /spec\.homepage/
+          line.gsub(/\=.*$/, "= 'http://example.org'")
+        when /spec\.summary/
+          line.gsub(/\=.*$/, "= %q{A short summary of my new gem.}")
+        when /spec\.description/
+          line.gsub(/\=.*$/, "= %q{A longer description of my new gem.}")
+        else
+          line
+        end
+      end
+    end
+
     def process_file(pathname)
       changed_lines = pathname.readlines.map do |line|
         yield line
@@ -565,7 +586,7 @@ module Spec
       tries = 0
       sleep 0.5
       TCPSocket.new(host, port)
-    rescue => e
+    rescue StandardError => e
       raise(e) if tries > (seconds * 2)
       tries += 1
       retry
@@ -575,7 +596,7 @@ module Spec
       port = 21_453
       begin
         port += 1 while TCPSocket.new("127.0.0.1", port)
-      rescue
+      rescue StandardError
         false
       end
       port

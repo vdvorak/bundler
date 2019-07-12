@@ -38,7 +38,7 @@ RSpec.describe "bundler plugin list" do
 
   context "single plugin installed" do
     it "shows plugin name with commands list" do
-      bundle "plugin install foo --source file://#{gem_repo2}"
+      bundle "plugin install foo --source #{file_uri_for(gem_repo2)}"
       plugin_should_be_installed("foo")
       bundle "plugin list"
 
@@ -49,22 +49,12 @@ RSpec.describe "bundler plugin list" do
 
   context "multiple plugins installed" do
     it "shows plugin names with commands list" do
-      bundle "plugin install foo bar --source file://#{gem_repo2}"
+      bundle "plugin install foo bar --source #{file_uri_for(gem_repo2)}"
       plugin_should_be_installed("foo", "bar")
       bundle "plugin list"
 
-      if RUBY_VERSION < "1.9"
-        # Bundler::Plugin::Index#installed_plugins is keys of Hash,
-        # and Hash is not ordered in prior to Ruby 1.9.
-        # So, foo and bar plugins are not always listed in that order.
-        expected_output1 = "foo\n-----\n  shout"
-        expect(out).to include(expected_output1)
-        expected_output2 = "bar\n-----\n  scream"
-        expect(out).to include(expected_output2)
-      else
-        expected_output = "foo\n-----\n  shout\n\nbar\n-----\n  scream"
-        expect(out).to include(expected_output)
-      end
+      expected_output = "foo\n-----\n  shout\n\nbar\n-----\n  scream"
+      expect(out).to include(expected_output)
     end
   end
 end

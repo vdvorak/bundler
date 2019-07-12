@@ -2,8 +2,8 @@
 
 module Bundler
   class Resolver
-    require "bundler/vendored_molinillo"
-    require "bundler/resolver/spec_group"
+    require_relative "vendored_molinillo"
+    require_relative "resolver/spec_group"
 
     # Figures out the best possible configuration of gems that satisfies
     # the list of passed dependencies and any child dependencies without
@@ -39,7 +39,7 @@ module Bundler
       @gem_version_promoter = gem_version_promoter
       @allow_bundler_dependency_conflicts = Bundler.feature_flag.allow_bundler_dependency_conflicts?
       @use_gvp = Bundler.feature_flag.use_gem_version_promoter_for_major_updates? || !@gem_version_promoter.major?
-      @lockfile_uses_separate_rubygems_sources = Bundler.feature_flag.lockfile_uses_separate_rubygems_sources?
+      @lockfile_uses_separate_rubygems_sources = Bundler.feature_flag.disable_multisource?
     end
 
     def start(requirements)
@@ -75,7 +75,7 @@ module Bundler
       return unless debug?
       debug_info = yield
       debug_info = debug_info.inspect unless debug_info.is_a?(String)
-      STDERR.puts debug_info.split("\n").map {|s| "  " * depth + s }
+      warn debug_info.split("\n").map {|s| "  " * depth + s }
     end
 
     def debug?
@@ -172,13 +172,13 @@ module Bundler
 
     def name_for_explicit_dependency_source
       Bundler.default_gemfile.basename.to_s
-    rescue
+    rescue StandardError
       "Gemfile"
     end
 
     def name_for_locking_dependency_source
       Bundler.default_lockfile.basename.to_s
-    rescue
+    rescue StandardError
       "Gemfile.lock"
     end
 
@@ -279,10 +279,10 @@ module Bundler
           versions_with_platforms = specs.map {|s| [s.version, s.platform] }
           message = String.new("Could not find gem '#{SharedHelpers.pretty_dependency(requirement)}' in #{source}#{cache_message}.\n")
           message << if versions_with_platforms.any?
-                       "The source contains '#{name}' at: #{formatted_versions_with_platforms(versions_with_platforms)}"
-                     else
-                       "The source does not contain any versions of '#{name}'"
-                     end
+            "The source contains '#{name}' at: #{formatted_versions_with_platforms(versions_with_platforms)}"
+          else
+            "The source does not contain any versions of '#{name}'"
+          end
         else
           message = "Could not find gem '#{requirement}' in any of the gem sources " \
             "listed in your Gemfile#{cache_message}."
@@ -375,12 +375,12 @@ module Bundler
             o << " "
 
             o << if relevant_sources.empty?
-                   "in any of the sources.\n"
-                 elsif metadata_requirement
-                   "is not available in #{relevant_sources.join(" or ")}"
-                 else
-                   "in any of the relevant sources:\n  #{relevant_sources * "\n  "}\n"
-                 end
+              "in any of the sources.\n"
+            elsif metadata_requirement
+              "is not available in #{relevant_sources.join(" or ")}"
+            else
+              "in any of the relevant sources:\n  #{relevant_sources * "\n  "}\n"
+            end
           end
         end,
         :version_for_spec => lambda {|spec| spec.version },
@@ -414,7 +414,7 @@ module Bundler
         msg = msg.join("\n")
 
         raise SecurityError, msg if multisource_disabled
-        Bundler.ui.error "Warning: #{msg}"
+        Bundler.ui.warn "Warning: #{msg}"
       end
     end
   end

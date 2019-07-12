@@ -1,3 +1,161 @@
+## 2.0.2 (2019-06-13)
+
+Changes:
+
+  - Fixes for Bundler integration with ruby-src ([#6941](https://github.com/bundler/bundler/pull/6941), [#6973](https://github.com/bundler/bundler/pull/6973), [#6977](https://github.com/bundler/bundler/pull/6977), [#6315](https://github.com/bundler/bundler/pull/6315), [#7061](https://github.com/bundler/bundler/pull/7061))
+  - Use `__dir__` instead of `__FILE__` when generating a gem with `bundle gem` ([#6503](https://github.com/bundler/bundler/pull/6503))
+  - Use `https` on externals links in the Bundler gemspec ([#6721](https://github.com/bundler/bundler/pull/6721))
+  - Removed duplicate gem names from the suggested `did you mean` list for gem typos ([#6739](https://github.com/bundler/bundler/pull/6739))
+  - Removed Ruby 1.x compatibility code ([#6764](https://github.com/bundler/bundler/pull/6764), [#6806](https://github.com/bundler/bundler/pull/6806))
+  - Fixed an issue where `bundle remove` would crash with certain Gemfiles ([#6768](https://github.com/bundler/bundler/pull/6769))
+  - Fixed indentation in the Bundler executable template ([#6773](https://github.com/bundler/bundler/pull/6773))
+  - Fixed an issue where plugins could register for the same Bundler hook multiple times ([#6775](https://github.com/bundler/bundler/pull/6775))
+  - Changed the "multiple sources" message in `bundle install` to be a warning instead of an error ([#6790](https://github.com/bundler/bundler/pull/6790))
+  - Fixed a bug where path gems would break when using `only_update_to_newer_versions` ([#6774](https://github.com/bundler/bundler/pull/6774))
+  - Fixed a bug where installing plugins with the `--deployment` setting would fail ([#6805](https://github.com/bundler/bundler/pull/6805))
+  - Fixed an issue where `bundle update` couldn't update & install a gem when `no_install` was set (a `bundle package` config) ([#7078](https://github.com/bundler/bundler/pull/7078))
+  - Fixed an issue where users could not run `bundle exec` on default gems ([#6963](https://github.com/bundler/bundler/pull/6963))
+  - Updated vendor libraries to their latest version ([#7076](https://github.com/bundler/bundler/pull/7067), [#7068](https://github.com/bundler/bundler/pull/7068))
+  - Fixed an issue where the `github` source was not using `https` by default that we mentioned in the 2.0 release ([#7182](https://github.com/bundler/bundler/pull/7182))
+  - Fixed an issue where `rake release` was not outputting the message to users asking for a 2fa token ([#7199](https://github.com/bundler/bundler/pull/7199))
+
+Documentation:
+
+  - Fix incorrect documented `BUNDLE_PATH_RELATIVE_TO_CWD` env var ([#6751](https://github.com/bundler/bundler/pull/6751))
+  - Update URLs in Bundler's documentation to use `https` ([#6935](https://github.com/bundler/bundler/pull/6935))
+
+## 2.0.1 (2019-01-04)
+
+Changes:
+
+  - Relaxed RubyGems requirement to `>= 2.5.0` ([#6867](https://github.com/bundler/bundler/pull/6867))
+
+## 2.0.0 (2019-01-03)
+
+No new changes
+
+## 2.0.0.pre.3 (2018-12-30)
+
+Breaking Changes:
+
+  - Bundler 2 now requires RubyGems 3.0.0 at minimum
+
+Changes:
+
+  - Ruby 2.6 compatibility fixes (@segiddins)
+  - Import changes from Bundler 1.17.3 release
+
+Note: To upgrade your Gemfile to Bundler 2 you will need to run `bundle update --bundler`
+
+## 2.0.0.pre.2 (2018-11-27)
+
+Breaking Changes:
+
+  - `:github` source in the Gemfile now defaults to using HTTPS
+
+Changes
+
+  - Add compatibility for Bundler merge into ruby-src
+
+Note: To upgrade your Gemfile to Bundler 2 you will need to run `bundle update --bundler`
+
+## 2.0.0.pre.1 (2018-11-09)
+
+Breaking Changes:
+
+  - Dropped support for versions of Ruby < 2.3
+  - Dropped support for version of RubyGems < 2.5
+  - Moved error messages from STDOUT to STDERR
+
+Note: To upgrade your Gemfile to Bundler 2 you will need to run `bundle update --bundler`
+
+## 1.17.3 (2018-12-27)
+
+Bugfixes:
+
+ - Fix a Bundler error when installing gems on old versions of RubyGems ([#6839](https://github.com/bundler/bundler/issues/6839), @colby-swandale)
+ - Fix a rare issue where Bundler was removing itself after a `bundle clean` ([#6829](https://github.com/bundler/bundler/issues/6829), @colby-swandale)
+
+Documentation:
+
+  - Add entry for the `bundle remove` command to the main Bundler manual page
+
+## 1.17.2 (2018-12-11)
+
+ - Add compatibility for bundler merge with Ruby 2.6
+
+## 1.17.1 (2018-10-25)
+
+ - Convert `Pathname`s to `String`s before sorting them, fixing #6760 and #6758 ([#6761](https://github.com/bundler/bundler/pull/6761), @alexggordon)
+
+## 1.17.0 (2018-10-25)
+
+No new changes.
+
+## 1.17.0.pre.2 (2018-10-13)
+
+Features:
+
+  - Configure Bundler home, cache, config and plugin directories with `BUNDLE_USER_HOME`, `BUNDLE_USER_CACHE`, `BUNDLE_USER_CONFIG` and `BUNDLE_USER_PLUGIN` env vars ([#4333](https://github.com/bundler/bundler/issues/4333), @gwerbin)
+  - Add `--all` option to `bundle binstubs` that will generate an executable file for all gems with commands in the bundle
+  - Add `bundle remove` command to remove gems from the Gemfile via the CLI
+  - Improve checking file permissions and asking for `sudo` in Bundler when it doesn't need to
+  - Add error message to `bundle add` to check adding duplicate gems to the Gemfile
+  - When asking for `sudo`, Bundler will show a list of folders/files that require elevated permissions to write to.
+
+The following new features are available but are not enabled by default. These are intended to be tested by users for the upcoming release of Bundler 2.
+
+  - Improve deprecation warning message for `bundle show` command
+  - Improve deprecation warning message for the `--force` option in `bundle install`
+
+## 1.17.0.pre.1 (2018-09-24)
+
+Features:
+
+  - Check folder/file permissions of the Bundle home directory in the `bundle doctor` command ([#5786](https://github.com/bundler/bundler/issues/5786), @ajwann)
+  - Remove compiled gem extensions when running `bundle clean` ([#5596](https://github.com/bundler/bundler/issues/5596), @akhramov)
+  - Add `--paths` option to `bundle list` command ([#6172](https://github.com/bundler/bundler/issues/6172), @colby-swandale)
+  - Add base error class to gems generated from `bundle gem` ([#6260](https://github.com/bundler/bundler/issues/6260), @christhekeele)
+  - Correctly re-install gem extensions with a git source when running `bundle pristine` ([#6294](https://github.com/bundler/bundler/issues/6294), @wagenet)
+  - Add config option to disable platform warnings ([#6124](https://github.com/bundler/bundler/issues/6124), @agrim123)
+  - Add `--skip-install` option to `bundle add` command to add gems to the Gemfile without installation ([#6511](https://github.com/bundler/bundler/issues/6511), @agrim123)
+  - Add `--only-explicit` option to `bundle outdated` to list only outdated gems in the Gemfile ([#5366](https://github.com/bundler/bundler/issues/5366), @peret)
+  - Support adding multiple gems to the Gemfile with `bundle add` ([#6543](https://github.com/bundler/bundler/issues/6543), @agrim123)
+  - Make registered plugin events easier to manage in the Plugin API (@jules2689)
+  - Add new gem install hooks to the Plugin API (@jules2689)
+  - Add `--optimistic` and `--strict` options to `bundle add` ([#6553](https://github.com/bundler/bundler/issues/6553), @agrim123)
+  - Add `--without-group` and `--only-group` options to `bundle list` ([#6564](https://github.com/bundler/bundler/issues/6564), @agrim123)
+  - Add `--gemfile` option to the `bundle exec` command ([#5924](https://github.com/bundler/bundler/issues/5924), @ankitkataria)
+
+The following new features are available but are not enabled by default. These are intended to be tested by users for the upcoming release of Bundler 2.
+
+  - Make `install --path` relative to the current working directory ([#2048](https://github.com/bundler/bundler/issues/2048), @igorbozato)
+  - Auto-configure job count ([#5808](https://github.com/bundler/bundler/issues/5808), @segiddins)
+  - Use the Gem Version Promoter for major gem updates ([#5993](https://github.com/bundler/bundler/issues/5993), @segiddins)
+  - Add config option to add the Ruby scope to `bundle config path` when configured globally (@segiddins)
+
+## 1.16.6 (2018-10-05)
+
+Changes:
+
+  - Add an error message when adding a gem with `bundle add` that's already in the bundle ([#6341](https://github.com/bundler/bundler/issues/6341), @agrim123)
+  - Add Homepage, Source Code and Changelog URI metadata fields to the `bundle gem` gemspec template (@walf443)
+
+Bugfixes:
+
+  - Fix issue where updating a gem resulted in the gem's version being downgraded when `BUNDLE_ONLY_UPDATE_TO_NEWER_VERSIONS` was set ([#6529](https://github.com/bundler/bundler/issues/6529), @theflow)
+  - Fix some rescue calls that don't specifiy error type (@utilum)
+  - Fix an issue when the Lockfile would contain platform-specific gems that it didn't need ([#6491](https://github.com/bundler/bundler/issues/6491), @segiddins)
+  - Improve handling of adding new gems with only a single group to the Gemfile in `bundle add` (@agrim123)
+  - Refactor check for OpenSSL in `bundle env` (@voxik)
+  - Remove an unnecessary assignment in Metadata (@voxik)
+
+Documentation:
+
+  - Update docs to reflect revised guidance to check in Gemfile.lock into version control for gems ([#5879](https://github.com/bundler/bundler/issues/5879), @arbonap)
+  - Add documentation for the `--all` flag in `bundle update` (@agrim123)
+  - Update README to use `bundle add` in usage examples (@hdf1986)
+
 ## 1.16.5 (2018-09-18)
 
 Changes:

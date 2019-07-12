@@ -52,7 +52,7 @@ RSpec.describe "real source plugins" do
       build_lib "a-path-gem"
 
       gemfile <<-G
-        source "file://localhost#{gem_repo2}" # plugin source
+        source "#{file_uri_for(gem_repo2)}" # plugin source
         source "#{lib_path("a-path-gem-1.0")}", :type => :mpath do
           gem "a-path-gem"
         end
@@ -67,7 +67,7 @@ RSpec.describe "real source plugins" do
       expect(the_bundle).to include_gems("a-path-gem 1.0")
     end
 
-    it "writes to lock file", :bundler => "< 2" do
+    it "writes to lock file", :bundler => "< 3" do
       bundle "install"
 
       lockfile_should_be <<-G
@@ -78,7 +78,7 @@ RSpec.describe "real source plugins" do
             a-path-gem (1.0)
 
         GEM
-          remote: file://localhost#{gem_repo2}/
+          remote: #{file_uri_for(gem_repo2)}/
           specs:
 
         PLATFORMS
@@ -92,19 +92,19 @@ RSpec.describe "real source plugins" do
       G
     end
 
-    it "writes to lock file", :bundler => "2" do
+    it "writes to lock file", :bundler => "3" do
       bundle "install"
 
       lockfile_should_be <<-G
-        GEM
-          remote: file://localhost#{gem_repo2}/
-          specs:
-
         PLUGIN SOURCE
           remote: #{lib_path("a-path-gem-1.0")}
           type: mpath
           specs:
             a-path-gem (1.0)
+
+        GEM
+          remote: #{file_uri_for(gem_repo2)}/
+          specs:
 
         PLATFORMS
           #{lockfile_platforms}
@@ -131,7 +131,7 @@ RSpec.describe "real source plugins" do
       end
 
       install_gemfile <<-G
-        source "file://#{gem_repo2}" # plugin source
+        source "#{file_uri_for(gem_repo2)}" # plugin source
         source "#{lib_path("gem-with-bin-1.0")}", :type => :mpath do
           gem "gem-with-bin"
         end
@@ -186,7 +186,7 @@ RSpec.describe "real source plugins" do
               a-path-gem (1.0)
 
           GEM
-            remote: file:#{gem_repo2}/
+            remote: #{file_uri_for(gem_repo2)}/
             specs:
 
           PLATFORMS
@@ -346,8 +346,8 @@ RSpec.describe "real source plugins" do
       build_git "ma-gitp-gem"
 
       gemfile <<-G
-        source "file://localhost#{gem_repo2}" # plugin source
-        source "file://#{lib_path("ma-gitp-gem-1.0")}", :type => :gitp do
+        source "#{file_uri_for(gem_repo2)}" # plugin source
+        source "#{file_uri_for(lib_path("ma-gitp-gem-1.0"))}", :type => :gitp do
           gem "ma-gitp-gem"
         end
       G
@@ -359,20 +359,20 @@ RSpec.describe "real source plugins" do
       expect(the_bundle).to include_gems("ma-gitp-gem 1.0")
     end
 
-    it "writes to lock file", :bundler => "< 2" do
+    it "writes to lock file", :bundler => "< 3" do
       revision = revision_for(lib_path("ma-gitp-gem-1.0"))
       bundle "install"
 
       lockfile_should_be <<-G
         PLUGIN SOURCE
-          remote: file://#{lib_path("ma-gitp-gem-1.0")}
+          remote: #{file_uri_for(lib_path("ma-gitp-gem-1.0"))}
           type: gitp
           revision: #{revision}
           specs:
             ma-gitp-gem (1.0)
 
         GEM
-          remote: file://localhost#{gem_repo2}/
+          remote: #{file_uri_for(gem_repo2)}/
           specs:
 
         PLATFORMS
@@ -386,21 +386,21 @@ RSpec.describe "real source plugins" do
       G
     end
 
-    it "writes to lock file", :bundler => "2" do
+    it "writes to lock file", :bundler => "3" do
       revision = revision_for(lib_path("ma-gitp-gem-1.0"))
       bundle "install"
 
       lockfile_should_be <<-G
-        GEM
-          remote: file://localhost#{gem_repo2}/
-          specs:
-
         PLUGIN SOURCE
-          remote: file://#{lib_path("ma-gitp-gem-1.0")}
+          remote: #{file_uri_for(lib_path("ma-gitp-gem-1.0"))}
           type: gitp
           revision: #{revision}
           specs:
             ma-gitp-gem (1.0)
+
+        GEM
+          remote: #{file_uri_for(gem_repo2)}/
+          specs:
 
         PLATFORMS
           #{lockfile_platforms}
@@ -418,14 +418,14 @@ RSpec.describe "real source plugins" do
         revision = revision_for(lib_path("ma-gitp-gem-1.0"))
         lockfile <<-G
           PLUGIN SOURCE
-            remote: file://#{lib_path("ma-gitp-gem-1.0")}
+            remote: #{file_uri_for(lib_path("ma-gitp-gem-1.0"))}
             type: gitp
             revision: #{revision}
             specs:
               ma-gitp-gem (1.0)
 
           GEM
-            remote: file:#{gem_repo2}/
+            remote: #{file_uri_for(gem_repo2)}/
             specs:
 
           PLATFORMS
@@ -469,8 +469,8 @@ RSpec.describe "real source plugins" do
       it "updates the deps on change in gemfile" do
         update_git "ma-gitp-gem", "1.1", :path => lib_path("ma-gitp-gem-1.0"), :gemspec => true
         gemfile <<-G
-          source "file://#{gem_repo2}" # plugin source
-          source "file://#{lib_path("ma-gitp-gem-1.0")}", :type => :gitp do
+          source "#{file_uri_for(gem_repo2)}" # plugin source
+          source "#{file_uri_for(lib_path("ma-gitp-gem-1.0"))}", :type => :gitp do
             gem "ma-gitp-gem", "1.1"
           end
         G
@@ -486,7 +486,7 @@ RSpec.describe "real source plugins" do
         ref = git.ref_for("master", 11)
 
         install_gemfile <<-G
-          source "file://#{gem_repo2}" # plugin source
+          source "#{file_uri_for(gem_repo2)}" # plugin source
           source  '#{lib_path("foo-1.0")}', :type => :gitp do
             gem "foo"
           end

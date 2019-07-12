@@ -1,4 +1,3 @@
-# encoding: utf-8
 # frozen_string_literal: true
 
 if defined?(Encoding) && Encoding.default_external.name != "UTF-8"
@@ -43,14 +42,6 @@ RSpec.describe "La biblioteca si misma" do
     failing_line_message unless failing_line_message.empty?
   end
 
-  RSpec::Matchers.define :be_well_formed do
-    match(&:empty?)
-
-    failure_message do |actual|
-      actual.join("\n")
-    end
-  end
-
   it "mantiene la calidad de lenguaje de la documentación" do
     included = /ronn/
     error_messages = []
@@ -64,7 +55,7 @@ RSpec.describe "La biblioteca si misma" do
     expect(error_messages.compact).to be_well_formed
   end
 
-  it "mantiene la calidad de lenguaje de oraciones usadas en el código fuente" do
+  it "mantiene la calidad de lenguaje de oraciones usadas en el código fuente", :ruby_repo do
     error_messages = []
     exempt = /vendor/
     Dir.chdir(root) do

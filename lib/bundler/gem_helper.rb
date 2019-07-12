@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "bundler/vendored_thor" unless defined?(Thor)
-require "bundler"
+require_relative "vendored_thor" unless defined?(Thor)
+require_relative "../bundler"
 require "shellwords"
 
 module Bundler
@@ -75,7 +75,8 @@ module Bundler
 
     def build_gem
       file_name = nil
-      sh(%W[gem build -V #{spec_path}]) do
+      gem = ENV["BUNDLE_GEM"] ? ENV["BUNDLE_GEM"] : "gem"
+      sh(%W[#{gem} build -V #{spec_path}]) do
         file_name = File.basename(built_gem_path)
         SharedHelpers.filesystem_access(File.join(base, "pkg")) {|p| FileUtils.mkdir_p(p) }
         FileUtils.mv(built_gem_path, "pkg")
@@ -86,7 +87,8 @@ module Bundler
 
     def install_gem(built_gem_path = nil, local = false)
       built_gem_path ||= build_gem
-      cmd = %W[gem install #{built_gem_path}]
+      gem = ENV["BUNDLE_GEM"] ? ENV["BUNDLE_GEM"] : "gem"
+      cmd = %W[#{gem} install #{built_gem_path}]
       cmd << "--local" if local
       out, status = sh_with_status(cmd)
       unless status.success? && out[/Successfully installed/]
@@ -104,7 +106,7 @@ module Bundler
       unless allowed_push_host || Bundler.user_home.join(".gem/credentials").file?
         raise "Your rubygems.org credentials aren't set. Run `gem push` to set them."
       end
-      sh(gem_command)
+      sh_with_input(gem_command)
       Bundler.ui.confirm "Pushed #{name} #{version} to #{gem_push_host}"
     end
 
@@ -178,6 +180,13 @@ module Bundler
       gemspec.name
     end
 
+    def sh_with_input(cmd)
+      Bundler.ui.debug(cmd)
+      SharedHelpers.chdir(base) do
+        abort unless Kernel.system(*cmd)
+      end
+    end
+
     def sh(cmd, &block)
       out, status = sh_with_status(cmd, &block)
       unless status.success?
@@ -187,28 +196,13 @@ module Bundler
       out
     end
 
-    if RUBY_VERSION >= "1.9"
-      def sh_with_status(cmd, &block)
-        Bundler.ui.debug(cmd)
-        SharedHelpers.chdir(base) do
-          outbuf = IO.popen(cmd, :err => [:child, :out], &:read)
-          status = $?
-          block.call(outbuf) if status.success? && block
-          [outbuf, status]
-        end
-      end
-    else
-      def sh_with_status(cmd, &block)
-        cmd = cmd.shelljoin if cmd.respond_to?(:shelljoin)
-        cmd += " 2>&1"
-        outbuf = String.new
-        Bundler.ui.debug(cmd)
-        SharedHelpers.chdir(base) do
-          outbuf = `#{cmd}`
-          status = $?
-          block.call(outbuf) if status.success? && block
-          [outbuf, status]
-        end
+    def sh_with_status(cmd, &block)
+      Bundler.ui.debug(cmd)
+      SharedHelpers.chdir(base) do
+        outbuf = IO.popen(cmd, :err => [:child, :out], &:read)
+        status = $?
+        block.call(outbuf) if status.success? && block
+        [outbuf, status]
       end
     end
 

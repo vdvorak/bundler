@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 RSpec.describe "bundle install with install-time dependencies" do
-  it "installs gems with implicit rake dependencies" do
+  it "installs gems with implicit rake dependencies", :ruby_repo do
     install_gemfile <<-G
-      source "file://#{gem_repo1}"
+      source "#{file_uri_for(gem_repo1)}"
       gem "with_implicit_rake_dep"
       gem "another_implicit_rake_dep"
       gem "rake"
@@ -31,7 +31,7 @@ RSpec.describe "bundle install with install-time dependencies" do
     end
 
     install_gemfile <<-G
-      source "file://#{gem_repo2}"
+      source "#{file_uri_for(gem_repo2)}"
       gem "actionpack", "2.3.2"
     G
 
@@ -41,25 +41,25 @@ RSpec.describe "bundle install with install-time dependencies" do
   describe "with crazy rubygem plugin stuff" do
     it "installs plugins" do
       install_gemfile <<-G
-        source "file://#{gem_repo1}"
+        source "#{file_uri_for(gem_repo1)}"
         gem "net_b"
       G
 
       expect(the_bundle).to include_gems "net_b 1.0"
     end
 
-    it "installs plugins depended on by other plugins" do
+    it "installs plugins depended on by other plugins", :ruby_repo do
       install_gemfile <<-G
-        source "file://#{gem_repo1}"
+        source "#{file_uri_for(gem_repo1)}"
         gem "net_a"
       G
 
       expect(the_bundle).to include_gems "net_a 1.0", "net_b 1.0"
     end
 
-    it "installs multiple levels of dependencies" do
+    it "installs multiple levels of dependencies", :ruby_repo do
       install_gemfile <<-G
-        source "file://#{gem_repo1}"
+        source "#{file_uri_for(gem_repo1)}"
         gem "net_c"
         gem "net_e"
       G
@@ -70,7 +70,7 @@ RSpec.describe "bundle install with install-time dependencies" do
     context "with ENV['DEBUG_RESOLVER'] set" do
       it "produces debug output" do
         gemfile <<-G
-          source "file://#{gem_repo1}"
+          source "#{file_uri_for(gem_repo1)}"
           gem "net_c"
           gem "net_e"
         G
@@ -84,7 +84,7 @@ RSpec.describe "bundle install with install-time dependencies" do
     context "with ENV['DEBUG_RESOLVER_TREE'] set" do
       it "produces debug output" do
         gemfile <<-G
-          source "file://#{gem_repo1}"
+          source "#{file_uri_for(gem_repo1)}"
           gem "net_c"
           gem "net_e"
         G
@@ -112,6 +112,26 @@ RSpec.describe "bundle install with install-time dependencies" do
           ruby "#{RUBY_VERSION}"
           source "http://localgemserver.test/"
           gem 'rack'
+        G
+
+        expect(out).to_not include("rack-9001.0.0 requires ruby version > 9000")
+        expect(the_bundle).to include_gems("rack 1.2")
+      end
+
+      it "installs the older version under rate limiting conditions" do
+        build_repo4 do
+          build_gem "rack", "9001.0.0" do |s|
+            s.required_ruby_version = "> 9000"
+          end
+          build_gem "rack", "1.2"
+          build_gem "foo1", "1.0"
+        end
+
+        install_gemfile <<-G, :artifice => "compact_index_rate_limited", :env => { "BUNDLER_SPEC_GEM_REPO" => gem_repo4 }
+          ruby "#{RUBY_VERSION}"
+          source "http://localgemserver.test/"
+          gem 'rack'
+          gem 'foo1'
         G
 
         expect(out).to_not include("rack-9001.0.0 requires ruby version > 9000")
@@ -151,7 +171,7 @@ RSpec.describe "bundle install with install-time dependencies" do
 
             Ruby\0 (> 9000), which is required by gem 'require_ruby', is not available in the local ruby installation
           E
-          expect(last_command.bundler_err).to end_with(nice_error)
+          expect(err).to end_with(nice_error)
         end
       end
 
@@ -183,12 +203,12 @@ RSpec.describe "bundle install with install-time dependencies" do
       end
 
       install_gemfile <<-G
-        source "file://#{gem_repo2}"
+        source "#{file_uri_for(gem_repo2)}"
         gem 'require_rubygems'
       G
 
-      expect(out).to_not include("Gem::InstallError: require_rubygems requires RubyGems version > 9000")
-      expect(out).to include("require_rubygems-1.0 requires rubygems version > 9000, which is incompatible with the current version, #{Gem::VERSION}")
+      expect(err).to_not include("Gem::InstallError: require_rubygems requires RubyGems version > 9000")
+      expect(err).to include("require_rubygems-1.0 requires rubygems version > 9000, which is incompatible with the current version, #{Gem::VERSION}")
     end
   end
 end

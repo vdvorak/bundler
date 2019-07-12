@@ -6,7 +6,7 @@ require "rubygems/user_interaction"
 module Bundler
   class Source
     class Rubygems < Source
-      autoload :Remote, "bundler/source/rubygems/remote"
+      autoload :Remote, File.expand_path("rubygems/remote", __dir__)
 
       # Use the API when installing less than X gems
       API_REQUEST_LIMIT = 500
@@ -51,7 +51,7 @@ module Bundler
       end
 
       def can_lock?(spec)
-        return super if Bundler.feature_flag.lockfile_uses_separate_rubygems_sources?
+        return super if Bundler.feature_flag.disable_multisource?
         spec.source.is_a?(Rubygems)
       end
 
@@ -106,7 +106,7 @@ module Bundler
           end
         end
 
-        if installed?(spec) && !force
+        if (installed?(spec) || Plugin.installed?(spec.name)) && !force
           print_using_message "Using #{version_message(spec)}"
           return nil # no post-install message
         end
@@ -124,7 +124,7 @@ module Bundler
           begin
             s = Bundler.rubygems.spec_from_gem(path, Bundler.settings["trust-policy"])
             spec.__swap__(s)
-          rescue
+          rescue StandardError
             Bundler.rm_rf(path)
             raise
           end

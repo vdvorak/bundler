@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "set"
+
 if defined?(Encoding) && Encoding.default_external.name != "UTF-8"
   # An approximation of ruby -E UTF-8, since it works on 1.8.7
   Encoding.default_external = Encoding.find("UTF-8")
@@ -96,19 +98,12 @@ RSpec.describe "The library itself" do
     failing_line_message unless failing_line_message.empty?
   end
 
-  RSpec::Matchers.define :be_well_formed do
-    match(&:empty?)
-
-    failure_message do |actual|
-      actual.join("\n")
-    end
-  end
-
   it "has no malformed whitespace" do
-    exempt = /\.gitmodules|\.marshal|fixtures|vendor|ssl_certs|LICENSE|vcr_cassettes/
+    exempt = /\.gitmodules|\.marshal|fixtures|vendor|LICENSE|vcr_cassettes/
     error_messages = []
     Dir.chdir(root) do
-      `git ls-files -z`.split("\x0").each do |filename|
+      lib_files = ruby_core? ? `git ls-files -z -- lib/bundler lib/bundler.rb spec/bundler` : `git ls-files -z -- lib`
+      lib_files.split("\x0").each do |filename|
         next if filename =~ exempt
         error_messages << check_for_tab_characters(filename)
         error_messages << check_for_extra_spaces(filename)
@@ -121,7 +116,8 @@ RSpec.describe "The library itself" do
     exempt = %r{quality_spec.rb|support/helpers|vcr_cassettes|\.md|\.ronn}
     error_messages = []
     Dir.chdir(root) do
-      `git ls-files -z`.split("\x0").each do |filename|
+      lib_files = ruby_core? ? `git ls-files -z -- lib/bundler lib/bundler.rb spec/bundler` : `git ls-files -z -- lib`
+      lib_files.split("\x0").each do |filename|
         next if filename =~ exempt
         error_messages << check_for_debugging_mechanisms(filename)
       end
@@ -133,7 +129,8 @@ RSpec.describe "The library itself" do
     error_messages = []
     exempt = %r{lock/lockfile_(bundler_1_)?spec|quality_spec|vcr_cassettes|\.ronn|lockfile_parser\.rb}
     Dir.chdir(root) do
-      `git ls-files -z`.split("\x0").each do |filename|
+      lib_files = ruby_core? ? `git ls-files -z -- lib/bundler lib/bundler.rb spec/bundler` : `git ls-files -z -- lib`
+      lib_files.split("\x0").each do |filename|
         next if filename =~ exempt
         error_messages << check_for_git_merge_conflicts(filename)
       end
@@ -158,7 +155,8 @@ RSpec.describe "The library itself" do
     error_messages = []
     exempt = /vendor/
     Dir.chdir(root) do
-      `git ls-files -z -- lib`.split("\x0").each do |filename|
+      lib_files = ruby_core? ? `git ls-files -z -- lib/bundler lib/bundler.rb` : `git ls-files -z -- lib`
+      lib_files.split("\x0").each do |filename|
         next if filename =~ exempt
         error_messages << check_for_expendable_words(filename)
         error_messages << check_for_specific_pronouns(filename)
@@ -171,15 +169,12 @@ RSpec.describe "The library itself" do
     exemptions = %w[
       auto_config_jobs
       cache_command_is_package
-      console_command
       deployment_means_frozen
       forget_cli_options
       gem.coc
       gem.mit
       inline
-      lockfile_uses_separate_rubygems_sources
       use_gem_version_promoter_for_major_updates
-      viz_command
     ]
 
     all_settings = Hash.new {|h, k| h[k] = [] }
@@ -191,7 +186,8 @@ RSpec.describe "The library itself" do
 
     Dir.chdir(root) do
       key_pattern = /([a-z\._-]+)/i
-      `git ls-files -z -- lib`.split("\x0").each do |filename|
+      lib_files = ruby_core? ? `git ls-files -z -- lib/bundler lib/bundler.rb` : `git ls-files -z -- lib`
+      lib_files.split("\x0").each do |filename|
         File.readlines(filename).each_with_index do |line, number|
           line.scan(/Bundler\.settings\[:#{key_pattern}\]/).flatten.each {|s| all_settings[s] << "referenced at `#{filename}:#{number.succ}`" }
         end
@@ -219,19 +215,36 @@ RSpec.describe "The library itself" do
   it "can still be built" do
     Dir.chdir(root) do
       begin
-        gem_command! :build, "bundler.gemspec"
-        if Bundler.rubygems.provides?(">= 2.4")
-          # there's no way around this warning
-          last_command.stderr.sub!(/^YAML safe loading.*/, "")
-
-          # older rubygems have weird warnings, and we won't actually be using them
-          # to build the gem for releases anyways
-          expect(last_command.stderr).to be_empty, "bundler should build as a gem without warnings, but\n#{err}"
+        if ruby_core?
+          spec = Gem::Specification.load(gemspec.to_s)
+          spec.bindir = "libexec"
+          File.open(root.join("bundler.gemspec").to_s, "w") {|f| f.write spec.to_ruby }
+          gem_command! :build, root.join("bundler.gemspec").to_s
+          FileUtils.rm(root.join("bundler.gemspec").to_s)
+        else
+          gem_command! :build, gemspec
         end
+
+        # there's no way around this warning
+        err.sub!(/^YAML safe loading.*/, "")
+
+        expect(err).to be_empty, "bundler should build as a gem without warnings, but\n#{err}"
       ensure
         # clean up the .gem generated
         FileUtils.rm("bundler-#{Bundler::VERSION}.gem")
       end
+    end
+  end
+
+  it "ships the correct set of files", :ruby_repo do
+    Dir.chdir(root) do
+      git_list = IO.popen("git ls-files -z", &:read).split("\x0").select {|f| f.match(%r{^(lib|exe)/}) }
+      git_list += %w[CHANGELOG.md LICENSE.md README.md bundler.gemspec]
+      git_list += Dir.glob("man/**/*")
+
+      gem_list = Gem::Specification.load(gemspec.to_s).files
+
+      expect(git_list.to_set).to eq(gem_list.to_set)
     end
   end
 
@@ -244,7 +257,8 @@ RSpec.describe "The library itself" do
         lib/bundler/vlad.rb
         lib/bundler/templates/gems.rb
       ]
-      lib_files = `git ls-files -z -- lib`.split("\x0").grep(/\.rb$/) - exclusions
+      lib_files = ruby_core? ? `git ls-files -z -- lib/bundler lib/bundler.rb` : `git ls-files -z -- lib`
+      lib_files = lib_files.split("\x0").grep(/\.rb$/) - exclusions
       lib_files.reject! {|f| f.start_with?("lib/bundler/vendor") }
       lib_files.map! {|f| f.chomp(".rb") }
       sys_exec!("ruby -w -Ilib") do |input, _, _|
@@ -253,7 +267,27 @@ RSpec.describe "The library itself" do
         end
       end
 
-      expect(last_command.stdboth.split("\n")).to be_well_formed
+      warnings = last_command.stdboth.split("\n")
+      # ignore warnings around deprecated Object#=~ method in RubyGems
+      warnings.reject! {|w| w =~ %r{rubygems\/version.rb.*deprecated\ Object#=~} }
+
+      expect(warnings).to be_well_formed
+    end
+  end
+
+  it "does not use require internally, but require_relative" do
+    Dir.chdir(root) do
+      exempt = %r{templates/|vendor/}
+      all_bad_requires = []
+      lib_files = ruby_core? ? `git ls-files -z -- lib/bundler lib/bundler.rb` : `git ls-files -z -- lib`
+      lib_files.split("\x0").each do |filename|
+        next if filename =~ exempt
+        File.readlines(filename).each_with_index do |line, number|
+          line.scan(/^ *require "bundler/).each { all_bad_requires << "#{filename}:#{number.succ}" }
+        end
+      end
+
+      expect(all_bad_requires).to be_empty, "#{all_bad_requires.size} internal requires that should use `require_relative`: #{all_bad_requires}"
     end
   end
 end
