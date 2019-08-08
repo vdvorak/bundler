@@ -1,3 +1,25 @@
+## 2.1.0.pre.1
+
+Features:
+
+  - Reimplement `config` command using subcommands ([#5981](https://github.com/bundler/bundler/pull/5981))
+  - Improve documentation around binstubs ([#5889](https://github.com/bundler/bundler/pull/5889))
+  - Add `bundle plugin list` command ([#6120](https://github.com/bundler/bundler/pull/6120))
+
+Bugfixes:
+
+  - Raise when the same gem is available in multiple sources, and show a suggestion to solve it ([#5985](https://github.com/bundler/bundler/pull/5985))
+  - Validate that bundler has permissions to write to the tmp directory, and raise with a meaningful error otherwise ([#5954](https://github.com/bundler/bundler/pull/5954))
+  - Remove downloaded `.gem` file from the cache if it's corrupted ([#6010](https://github.com/bundler/bundler/pull/6010))
+    TODO: Create a ticket about improving the UI.
+  - Fix generated README in new gems to explicitly suggest running `bundle install`, so that the outcome is independent from the major version of bundler being run ([#6068](https://github.com/bundler/bundler/pull/6068))
+  - Fix `bundle outdated --group NAME` when the group is listed second in the Gemfile ([#6116](https://github.com/bundler/bundler/pull/6116))
+
+Changes:
+
+  - The `--strict` flag to `bundle outdated` has been renamed to `--filter-strict`. The old name still works but will be removed in Bundler 3 ([6030](https://github.com/bundler/bundler/pull/6030))
+    TODO: Warn when `--strict` option is used.
+
 ## 2.0.2 (2019-06-13)
 
 Changes:
