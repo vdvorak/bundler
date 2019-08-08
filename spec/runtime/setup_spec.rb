@@ -801,13 +801,11 @@ end
 
       FileUtils.ln_s(root, File.join(gems_dir, full_name))
 
-      gemspec_file = ruby_core? ? "#{root}/lib/bundler/bundler.gemspec" : "#{root}/bundler.gemspec"
-      gemspec = File.binread(gemspec_file).
-                sub("Bundler::VERSION", %("#{Bundler::VERSION}"))
-      gemspec = gemspec.lines.reject {|line| line =~ %r{lib/bundler/version} }.join
+      gemspec_content = File.binread(gemspec).sub("Bundler::VERSION", %("#{Bundler::VERSION}"))
+      gemspec_content = gemspec_content.lines.reject {|line| line =~ %r{lib/bundler/version} }.join
 
       File.open(File.join(specifications_dir, "#{full_name}.gemspec"), "wb") do |f|
-        f.write(gemspec)
+        f.write(gemspec_content)
       end
     end
 
